@@ -1,6 +1,7 @@
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { QRCodeCanvas } from "qrcode.react";
+import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
+
 
 /* ================= PAGE 1 ================= */
 function Home() {
@@ -167,6 +168,42 @@ function CustomizePage() {
   const [nameSize, setNameSize] = useState(18);
   const [nameColor, setNameColor] = useState("#6b2d2d");
   const [fontFamily, setFontFamily] = useState("Arial");
+  const [fontSearch, setFontSearch] = useState("");
+const fontList = [
+  "Arial",
+  "Verdana",
+  "Times New Roman",
+  "Georgia",
+  "Courier New",
+  "Trebuchet MS",
+  "Comic Sans MS",
+  "Impact",
+  "Tahoma",
+  "Lucida Console",
+
+  "Poppins",
+  "Roboto",
+  "Open Sans",
+  "Lato",
+  "Montserrat",
+  "Raleway",
+  "Nunito",
+  "Inter",
+  "Ubuntu",
+  "Mukta",
+
+  "Playfair Display",
+  "Merriweather",
+  "Oswald",
+  "Bebas Neue",
+  "Pacifico",
+  "Dancing Script",
+  "Anton",
+  "Quicksand",
+  "Source Sans Pro",
+  "Karla",
+];
+
 
   const [logo, setLogo] = useState(null);
   const [logoSize, setLogoSize] = useState(40);
@@ -221,29 +258,57 @@ function CustomizePage() {
     setIcons(copy);
   };
 
-  const handleDownload = () => {
-    const svg = document.getElementById("final-svg");
-    const serializer = new XMLSerializer();
-    let source = serializer.serializeToString(svg);
+  const handleDownload = async () => {
+  const svg = document.getElementById("final-svg");
+  const serializer = new XMLSerializer();
 
-    if (!source.includes("xmlns")) {
-      source = source.replace(
-        "<svg",
-        '<svg xmlns="http://www.w3.org/2000/svg"'
-      );
-    }
+  // clone SVG taaki UI disturb na ho
+  const clone = svg.cloneNode(true);
 
-    const blob = new Blob([source], {
-      type: "image/svg+xml;charset=utf-8",
+  const images = clone.querySelectorAll("image");
+
+  for (const img of images) {
+    const href =
+      img.getAttribute("href") || img.getAttribute("xlink:href");
+
+    if (!href || href.startsWith("data:")) continue;
+
+    const response = await fetch(href);
+    const blob = await response.blob();
+
+    const reader = new FileReader();
+    const base64 = await new Promise((resolve) => {
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
     });
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "final-design.svg";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    img.setAttribute("href", base64);
+    img.removeAttribute("xlink:href");
+  }
+
+  let source = serializer.serializeToString(clone);
+
+  if (!source.includes('xmlns="http://www.w3.org/2000/svg"')) {
+    source = source.replace(
+      "<svg",
+      '<svg xmlns="http://www.w3.org/2000/svg"'
+    );
+  }
+
+  const blob = new Blob([source], {
+    type: "image/svg+xml;charset=utf-8",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "final-design.svg";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
 
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-center p-4">
@@ -273,7 +338,7 @@ function CustomizePage() {
             {businessName}
           </text>
 
-          {/* ICON + QR */}
+          {/* ICON + QR (FINAL FIX) */}
           {Array.from({ length: qrCount }).map((_, i) => {
             const y = 120 + i * 125;
             return (
@@ -282,16 +347,16 @@ function CustomizePage() {
                   <image
                     href={iconMap[icons[i]]}
                     x="130"
-                    y={y-16}
+                    y={y - 16}
                     width="80"
                     height="80"
                   />
                 )}
-                <foreignObject x="270" y={y - 28} width="120" height="120">
-                  <div xmlns="http://www.w3.org/1999/xhtml">
-                    <QRCodeCanvas value={link} size={100} />
-                  </div>
-                </foreignObject>
+
+                {/* ✅ PURE SVG QR (DOWNLOAD WORKS) */}
+                <g transform={`translate(270 ${y - 28})`}>
+                  <QRCodeSVG value={link} size={100} />
+                </g>
               </g>
             );
           })}
@@ -310,7 +375,8 @@ function CustomizePage() {
           )}
         </svg>
 
-        {/* ===== RIGHT CONTROLS (IMAGE STYLE) ===== */}
+        {/* ===== RIGHT CONTROLS ===== */}
+        
         <div className="border rounded-2xl p-6 space-y-4">
 
           {Array.from({ length: qrCount }).map((_, i) => (
@@ -332,6 +398,14 @@ function CustomizePage() {
           <div>
             <div className="text-sm mb-1">Business Name Size</div>
             <input
+  type="text"
+  value={businessName}
+  onChange={(e) => setBusinessName(e.target.value)}
+  className="border p-2 w-full"
+  placeholder="Enter business name"
+/>
+
+            <input
               type="range"
               min="12"
               max="40"
@@ -340,6 +414,38 @@ function CustomizePage() {
               className="w-full"
             />
           </div>
+          <div>
+  <div className="text-sm mb-1">Business Name Font</div>
+
+  {/* Search bar */}
+  <input
+    type="text"
+    placeholder="Search font..."
+    value={fontSearch}
+    onChange={(e) => setFontSearch(e.target.value)}
+    className="w-full border p-2 rounded mb-2"
+  />
+
+  {/* Font dropdown */}
+  <select
+    value={fontFamily}
+    onChange={(e) => setFontFamily(e.target.value)}
+    className="w-full border p-2 rounded"
+  >
+    {fontList
+      .filter((font) =>
+        font.toLowerCase().includes(fontSearch.toLowerCase())
+      )
+      .map((font) => (
+        <option key={font} value={font}>
+          {font}
+        </option>
+      ))}
+  </select>
+</div>
+
+
+
 
           <div>
             <div className="text-sm mb-1">Business Name Color</div>
@@ -375,7 +481,6 @@ function CustomizePage() {
     </div>
   );
 }
-
 
 /* ================= ROUTES ================= */
 export default function App() {
